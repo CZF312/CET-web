@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 
+type WordCheckinSummary = {
+  wordId: string
+  status: string
+  correct: boolean | null
+  date: Date
+}
+
+type WordRow = Record<string, unknown> & {
+  checkins: WordCheckinSummary[]
+}
+
+function countMasteredWords(checkins: WordCheckinSummary[]) {
+  const latestCheckinByWord = new Map<string, WordCheckinSummary>()
+
+  for (const checkin of checkins) {
+    const existing = latestCheckinByWord.get(checkin.wordId)
+    if (!existing || checkin.date > existing.date) {
+      latestCheckinByWord.set(checkin.wordId, checkin)
+    }
+  }
+
+  return Array.from(latestCheckinByWord.values()).filter(
+    (checkin) => checkin.status === 'mastered'
+  ).length
+}
+
 // GET: Student only - get paginated words with checkin status
 export async function GET(request: NextRequest) {
   try {
@@ -9,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (!user || user.role !== 'student') {
       return NextResponse.json(
-        { success: false, message: '无权限访问' },
+        { success: false, message: 'Forbidden' },
         { status: 403 }
       )
     }
@@ -24,7 +50,7 @@ export async function GET(request: NextRequest) {
       where.level = parseInt(level, 10)
     }
 
-    const [words, total] = await Promise.all([
+    const [words, total, totalWords, allCheckins] = await Promise.all([
       prisma.word.findMany({
         where,
         skip: (page - 1) * limit,
@@ -34,20 +60,32 @@ export async function GET(request: NextRequest) {
           checkins: {
             where: { studentId: user.id },
             select: {
-              id: true,
+              wordId: true,
               status: true,
               correct: true,
               date: true,
             },
+            orderBy: { date: 'desc' },
+            take: 1,
           },
         },
       }),
       prisma.word.count({ where }),
+      prisma.word.count(),
+      prisma.wordCheckin.findMany({
+        where: { studentId: user.id },
+        select: {
+          wordId: true,
+          status: true,
+          correct: true,
+          date: true,
+        },
+      }),
     ])
 
-    const wordsWithStatus = words.map((word) => {
+    const wordsWithStatus = (words as WordRow[]).map((word) => {
       const { checkins, ...wordData } = word
-      const latestCheckin = checkins.length > 0 ? checkins[checkins.length - 1] : null
+      const latestCheckin = checkins.length > 0 ? checkins[0] : null
       return {
         ...wordData,
         checkinStatus: latestCheckin?.status || null,
@@ -60,13 +98,15 @@ export async function GET(request: NextRequest) {
       success: true,
       words: wordsWithStatus,
       total,
+      totalWords,
+      masteredCount: countMasteredWords(allCheckins as WordCheckinSummary[]),
       page,
       limit,
     })
   } catch (error) {
     console.error('Get words error:', error)
     return NextResponse.json(
-      { success: false, message: '服务器错误' },
+      { success: false, message: 'Server error' },
       { status: 500 }
     )
   }

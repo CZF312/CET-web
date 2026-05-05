@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 
+type QuizQuestion = {
+  id?: string
+  questionId?: string
+  correctAnswer?: string
+  answer?: string
+}
+
 // POST: Student only - submit quiz attempt
 export async function POST(request: NextRequest) {
   try {
@@ -9,21 +16,24 @@ export async function POST(request: NextRequest) {
 
     if (!user || user.role !== 'student') {
       return NextResponse.json(
-        { success: false, message: '无权限访问' },
+        { success: false, message: 'Forbidden' },
         { status: 403 }
       )
     }
 
-    const { quizId, answers, duration } = await request.json()
+    const { quizId, answers, duration } = (await request.json()) as {
+      quizId?: string
+      answers?: Record<string, string>
+      duration?: number
+    }
 
     if (!quizId || !answers) {
       return NextResponse.json(
-        { success: false, message: 'quizId 和 answers 不能为空' },
+        { success: false, message: 'quizId and answers are required' },
         { status: 400 }
       )
     }
 
-    // Get quiz content to calculate score
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
       select: { content: true },
@@ -31,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (!quiz) {
       return NextResponse.json(
-        { success: false, message: '测验不存在' },
+        { success: false, message: 'Quiz not found' },
         { status: 404 }
       )
     }
@@ -41,33 +51,39 @@ export async function POST(request: NextRequest) {
       quizContent = JSON.parse(quiz.content)
     } catch {
       return NextResponse.json(
-        { success: false, message: '测验内容格式错误' },
+        { success: false, message: 'Invalid quiz content' },
         { status: 500 }
       )
     }
 
-    // Calculate score
     let correct = 0
     let wrong = 0
-    const total = quizContent.questions?.length || 0
+    const questions: QuizQuestion[] = Array.isArray(quizContent)
+      ? quizContent
+      : quizContent.questions || []
+    const total = questions.length
+    const correctAnswers: Record<string, string> = {}
 
-    if (Array.isArray(quizContent.questions)) {
-      for (const question of quizContent.questions) {
-        const questionId = question.id || question.questionId
-        const studentAnswer = answers[questionId]
-        const correctAnswer = question.correctAnswer || question.answer
+    for (const question of questions) {
+      const questionId = question.id || question.questionId
+      if (!questionId) continue
 
-        if (studentAnswer === correctAnswer) {
-          correct++
-        } else {
-          wrong++
-        }
+      const studentAnswer = answers[questionId]
+      const correctAnswer = question.correctAnswer || question.answer
+
+      if (correctAnswer) {
+        correctAnswers[questionId] = correctAnswer
+      }
+
+      if (studentAnswer === correctAnswer) {
+        correct++
+      } else {
+        wrong++
       }
     }
 
     const score = total > 0 ? Math.round((correct / total) * 100) : 0
 
-    // Save quiz attempt
     const attempt = await prisma.quizAttempt.create({
       data: {
         studentId: user.id,
@@ -85,12 +101,19 @@ export async function POST(request: NextRequest) {
       total,
       correct,
       wrong,
+      result: {
+        score: correct,
+        total,
+        duration: duration || 0,
+        answers,
+        correctAnswers,
+      },
       attemptId: attempt.id,
     })
   } catch (error) {
     console.error('Submit quiz error:', error)
     return NextResponse.json(
-      { success: false, message: '服务器错误' },
+      { success: false, message: 'Server error' },
       { status: 500 }
     )
   }

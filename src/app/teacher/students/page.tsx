@@ -24,11 +24,7 @@ export default function StudentManagement() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  const fetchStudents = async () => {
+  async function refreshStudents() {
     try {
       const res = await fetch('/api/students');
       if (res.ok) {
@@ -40,7 +36,15 @@ export default function StudentManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    async function fetchStudents() {
+      await refreshStudents();
+    }
+
+    fetchStudents();
+  }, []);
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +67,7 @@ export default function StudentManagement() {
 
       setShowModal(false);
       setFormData({ username: '', password: '', name: '' });
-      fetchStudents();
+      refreshStudents();
     } catch {
       setFormError('网络错误，请稍后重试');
     } finally {
@@ -73,13 +77,13 @@ export default function StudentManagement() {
 
   const handleDeleteStudent = async (id: string) => {
     try {
-      const res = await fetch(`/api/students?id=${id}`, {
+      const res = await fetch(`/api/students/${id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
         setDeleteConfirm(null);
-        fetchStudents();
+        refreshStudents();
       }
     } catch {
       // ignore

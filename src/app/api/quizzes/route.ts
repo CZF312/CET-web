@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 
+type QuizListRow = {
+  id: string
+  type: string
+  title: string
+  difficulty: number
+  createdAt: Date
+  _count: { attempts: number }
+}
+
 // GET: Student only - get quiz list with optional filters
 export async function GET(request: NextRequest) {
   try {
@@ -46,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Add student's attempt info for each quiz
     const quizzesWithAttempt = await Promise.all(
-      quizzes.map(async (quiz) => {
+      (quizzes as QuizListRow[]).map(async (quiz) => {
         const attempt = await prisma.quizAttempt.findFirst({
           where: {
             studentId: user.id,

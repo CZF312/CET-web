@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -34,28 +34,31 @@ export default function WordCheckin() {
   const [totalWords, setTotalWords] = useState(0);
 
   useEffect(() => {
+    async function fetchWords() {
+      setLoading(true);
+      setCurrentPage(1);
+      setStatuses({});
+      try {
+        const params = new URLSearchParams({ limit: '1000' });
+        if (activeLevel > 0) {
+          params.set('level', String(activeLevel));
+        }
+        const res = await fetch(`/api/words?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setWords(data.words || []);
+          setMasteredCount(data.masteredCount || 0);
+          setTotalWords(data.totalWords || data.total || 0);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchWords();
   }, [activeLevel]);
-
-  const fetchWords = async () => {
-    setLoading(true);
-    setCurrentPage(1);
-    setStatuses({});
-    try {
-      const params = activeLevel > 0 ? `?level=${activeLevel}` : '';
-      const res = await fetch(`/api/words${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setWords(data.words || []);
-        setMasteredCount(data.masteredCount || 0);
-        setTotalWords(data.totalWords || 0);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusChange = (wordId: string, status: 'mastered' | 'review' | 'learning') => {
     setStatuses((prev) => ({ ...prev, [wordId]: status }));

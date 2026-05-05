@@ -23,40 +23,40 @@ export default function StudentHome() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchStudentData() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const me = await res.json();
+          const res2 = await fetch('/api/students/me');
+          if (res2.ok) {
+            const studentData = await res2.json();
+            setData({
+              name: me.user.name,
+              todayCheckins: studentData.todayCheckins ?? 0,
+              masteredWords: studentData.masteredWords ?? 0,
+              streakDays: studentData.streakDays ?? 0,
+              recentActivities: studentData.recentActivities ?? [],
+            });
+          } else {
+            setData({
+              name: me.user.name,
+              todayCheckins: 0,
+              masteredWords: 0,
+              streakDays: 0,
+              recentActivities: [],
+            });
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchStudentData();
   }, []);
-
-  const fetchStudentData = async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      if (res.ok) {
-        const me = await res.json();
-        const res2 = await fetch(`/api/students/me`);
-        if (res2.ok) {
-          const studentData = await res2.json();
-          setData({
-            name: me.user.name,
-            todayCheckins: studentData.todayCheckins ?? 0,
-            masteredWords: studentData.masteredWords ?? 0,
-            streakDays: studentData.streakDays ?? 0,
-            recentActivities: studentData.recentActivities ?? [],
-          });
-        } else {
-          setData({
-            name: me.user.name,
-            todayCheckins: 0,
-            masteredWords: 0,
-            streakDays: 0,
-            recentActivities: [],
-          });
-        }
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <ProtectedRoute allowedRoles={['student']}>

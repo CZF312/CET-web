@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 
+type WordCheckinSummary = {
+  wordId: string
+  status: string
+  date: Date
+}
+
 // GET: Student only - get word learning progress summary
 export async function GET(request: NextRequest) {
   try {
@@ -27,12 +33,13 @@ export async function GET(request: NextRequest) {
     })
 
     // Count unique words learned and mastered
-    const uniqueWordIds = new Set(checkins.map((c) => c.wordId))
+    const typedCheckins = checkins as WordCheckinSummary[]
+    const uniqueWordIds = new Set(typedCheckins.map((c) => c.wordId))
     const learned = uniqueWordIds.size
 
     // Mastered: words where the latest checkin status is 'mastered'
     const latestCheckinByWord = new Map<string, { status: string; date: Date }>()
-    for (const checkin of checkins) {
+    for (const checkin of typedCheckins) {
       const existing = latestCheckinByWord.get(checkin.wordId)
       if (!existing || checkin.date > existing.date) {
         latestCheckinByWord.set(checkin.wordId, {
@@ -68,7 +75,7 @@ export async function GET(request: NextRequest) {
     // Calculate streak (consecutive days with at least one checkin)
     let streak = 0
     const checkinDates = new Set<string>()
-    for (const checkin of checkins) {
+    for (const checkin of typedCheckins) {
       const dateStr = new Date(checkin.date).toISOString().split('T')[0]
       checkinDates.add(dateStr)
     }

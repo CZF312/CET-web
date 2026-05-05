@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -41,7 +41,7 @@ export default function QuizTaking() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
-  const [startTime, setStartTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
 
   // Timer
@@ -54,28 +54,31 @@ export default function QuizTaking() {
   }, [startTime, result]);
 
   useEffect(() => {
+    async function fetchQuiz() {
+      try {
+        const res = await fetch(`/api/quizzes/${quizId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setQuiz(data.quiz);
+          try {
+            const content =
+              typeof data.quiz.content === 'string'
+                ? JSON.parse(data.quiz.content)
+                : data.quiz.content;
+            setQuestions(Array.isArray(content) ? content : content.questions || []);
+          } catch {
+            setQuestions([]);
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchQuiz();
   }, [quizId]);
-
-  const fetchQuiz = async () => {
-    try {
-      const res = await fetch(`/api/quizzes/${quizId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setQuiz(data.quiz);
-        try {
-          const parsed = JSON.parse(data.quiz.content);
-          setQuestions(Array.isArray(parsed) ? parsed : parsed.questions || []);
-        } catch {
-          setQuestions([]);
-        }
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));

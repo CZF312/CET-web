@@ -26,23 +26,23 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const res = await fetch('/api/dashboard');
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data.stats);
+          setActivities(data.recentActivities || []);
+        }
+      } catch {
+        // use defaults
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchDashboardData();
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const res = await fetch('/api/dashboard');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-        setActivities(data.recentActivities || []);
-      }
-    } catch {
-      // use defaults
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>

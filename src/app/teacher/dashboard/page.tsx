@@ -46,22 +46,22 @@ export default function DataDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const res = await fetch('/api/dashboard');
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchDashboardData();
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const res = await fetch('/api/dashboard');
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>

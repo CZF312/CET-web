@@ -62,24 +62,24 @@ export default function QuizList() {
   const [activeType, setActiveType] = useState('all');
 
   useEffect(() => {
+    async function fetchQuizzes() {
+      setLoading(true);
+      try {
+        const params = activeType !== 'all' ? `?type=${activeType}` : '';
+        const res = await fetch(`/api/quizzes${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setQuizzes(data.quizzes || []);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchQuizzes();
   }, [activeType]);
-
-  const fetchQuizzes = async () => {
-    setLoading(true);
-    try {
-      const params = activeType !== 'all' ? `?type=${activeType}` : '';
-      const res = await fetch(`/api/quizzes${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setQuizzes(data.quizzes || []);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <ProtectedRoute allowedRoles={['student']}>
