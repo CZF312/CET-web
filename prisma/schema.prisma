@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  students  Student[]
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+  wordCheckins    WordCheckin[]
+  quizAttempts    QuizAttempt[]
+}
+
+model Word {
+  id         String        @id @default(cuid())
+  word       String        @unique
+  phonetic   String
+  meaning    String
+  example    String
+  level      Int           @default(1)
+  checkins   WordCheckin[]
+}
+
+model WordCheckin {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  wordId    String
+  word      Word     @relation(fields: [wordId], references: [id])
+  status    String   @default("learning") // learning, mastered, review
+  correct   Boolean?
+  date      DateTime @default(now())
+  @@unique([studentId, wordId, date])
+}
+
+model Quiz {
+  id          String @id @default(cuid())
+  type        String // listening, reading, writing, translation, vocabulary
+  title       String
+  content     String // JSON string with quiz data
+  difficulty  Int    @default(1)
+  createdAt   DateTime @default(now())
+  attempts    QuizAttempt[]
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id])
+  answers   String   // JSON string
+  score     Int
+  total     Int
+  duration  Int      // seconds
+  createdAt DateTime @default(now())
+}
